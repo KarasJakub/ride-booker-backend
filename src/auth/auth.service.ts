@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -8,6 +9,8 @@ import { SupabaseService } from './supabase.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto'
+import { ResetPasswordDto } from './dto/reset-password.dto'
 
 @Injectable()
 export class AuthService {
@@ -122,4 +125,82 @@ export class AuthService {
       },
     });
   }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+  const client = this.supabase.getClient();
+
+  const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new UnauthorizedException('Użytkownik nie znaleziony');
+
+  // Require password if email is being changed
+  if (dto.email && dto.email !== user.email) {
+    if (!dto.password) {
+      throw new BadRequestException('Podaj hasło aby zmienić email');
+    }
+
+    const { error: loginError } = await client.auth.signInWithPassword({
+      email: user.email,
+      password: dto.password,
+    });
+    if (loginError) throw new UnauthorizedException('Nieprawidłowe hasło');
+
+    const { error: supabaseError } = await client.auth.updateUser({
+      email: dto.email,
+    });
+    if (supabaseError) throw new BadRequestException(supabaseError.message);
+  }
+
+  return this.prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(dto.fullName && { fullName: dto.fullName }),
+      ...(dto.phone && { phone: dto.phone }),
+      ...(dto.email && { email: dto.email }),
+    },
+    select: {
+      id: true, email: true, fullName: true, phone: true, role: true,
+    },
+  });
+}
+
+async resetPassword(dto: ResetPasswordDto) {
+  const client = this.supabase.getClient();
+
+  const { error } = await client.auth.resetPasswordForEmail(dto.email, {
+    redirectTo: `${process.env.APP_URL}/auth/new-password`,
+  });
+
+  if (error) throw new BadRequestException(error.message);
+
+  // TODO: "Make it more dynamic and in EN"
+  return { message: 'Jeśli konto istnieje, wysłaliśmy link do resetowania hasła' };
+}
+
+async deleteOwnAccount(userId: string) {
+  const client = this.supabase.getClient();
+
+  const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new UnauthorizedException('Użytkownik nie znaleziony');
+
+  // Delete from prisma
+  await this.prisma.user.delete({ where: { id: userId } });
+
+  // Delete from Supabase
+  await client.auth.admin.deleteUser(user.supabaseId);
+
+  return { message: 'Konto zostało usunięte' };
+}
+
+async deleteAccountByAdmin(targetUserId: string) {
+  const client = this.supabase.getClient();
+
+  const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+  if (!user) throw new NotFoundException('Użytkownik nie znaleziony');
+
+  await this.prisma.user.delete({ where: { id: targetUserId } });
+  await client.auth.admin.deleteUser(user.supabaseId);
+
+  return { message: 'Konto użytkownika zostało usunięte' };
+}
+
 }
