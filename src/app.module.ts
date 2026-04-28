@@ -7,17 +7,21 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { SlotsModule } from './slots/slots.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
-    LocationsModule,
-    OrganizationsModule,
     AuthModule,
+    OrganizationsModule,
+    LocationsModule,
     VehiclesModule,
     InventoryModule,
     SlotsModule,
+    BookingsModule,
   ],
 })
 export class AppModule {}

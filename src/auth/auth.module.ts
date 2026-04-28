@@ -1,17 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SupabaseService } from './supabase.service';
-import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Module({
   imports: [
-    PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -21,7 +19,7 @@ import { RolesGuard } from './guards/roles.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, SupabaseService, JwtStrategy, JwtAuthGuard, RolesGuard],
+  providers: [AuthService, SupabaseService, JwtAuthGuard, RolesGuard, PrismaService],
   exports: [JwtAuthGuard, RolesGuard, SupabaseService],
 })
 export class AuthModule {}
