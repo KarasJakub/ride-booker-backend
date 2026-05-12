@@ -4,16 +4,27 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
 export class SupabaseService {
-  private client: SupabaseClient;
+  private url: string;
+  private anonKey: string;
 
   constructor(private config: ConfigService) {
-    this.client = createClient(
-      this.config.get('SUPABASE_URL') || '',
-      this.config.get('SUPABASE_ANON_KEY') || '',
-    );
+    this.url = this.config.get('SUPABASE_URL') || '';
+    this.anonKey = this.config.get('SUPABASE_ANON_KEY') || '';
   }
 
+  // Global client — auth (login, register)
   getClient(): SupabaseClient {
-    return this.client;
+    return createClient(this.url, this.anonKey);
+  }
+
+  // Client with user token — for authenticated requests
+  getClientWithToken(accessToken: string): SupabaseClient {
+    return createClient(this.url, this.anonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    });
   }
 }

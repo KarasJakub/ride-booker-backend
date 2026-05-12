@@ -1,6 +1,6 @@
 import {
   Body, Controller, Delete, Get, HttpCode,
-  HttpStatus, Param, Patch, Post, UseGuards,
+  HttpStatus, Param, Patch, Post, Req, UnauthorizedException, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -13,6 +13,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto'
 import { ResetPasswordDto } from './dto/reset-password.dto'
 import { RolesGuard } from './guards/roles.guard'
 import { Roles } from './decorators/roles.decorator'
+import type { Response } from 'express';
+import { Res } from '@nestjs/common';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -25,26 +27,77 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Logowanie' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+@Post('login')
+@HttpCode(HttpStatus.OK)
+@ApiOperation({ summary: 'Logowanie' })
+async login(
+  @Body() dto: LoginDto,
+  @Res({ passthrough: true }) res: Response,
+) {
+  const data = await this.authService.login(dto);
+
+  // Set refresh token in HttpOnly cookie
+  res.cookie('refreshToken', data.refreshToken, {
+    httpOnly: true,       // not accessible via JS
+    secure: false,        // set to true in production (HTTPS)
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  });
+
+  // Return only accessToken and user data (without refreshToken)
+  return {
+    user: data.user,
+    accessToken: data.accessToken,
+  };
+}
+
+@Post('refresh')
+@HttpCode(HttpStatus.OK)
+@ApiOperation({ summary: 'Odnów access token' })
+async refresh(
+  @Req() req: Request,
+  @Res({ passthrough: true }) res: Response,
+) {
+  // Download refresh token from cookie
+  const refreshToken = (req as any).cookies?.refreshToken;
+  if (!refreshToken) {
+    throw new UnauthorizedException('Brak refresh tokena');
   }
 
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Odnów access token' })
-  refresh(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refresh(refreshToken);
+  const data = await this.authService.refresh(refreshToken);
+
+  // Set new refresh token in cookie
+  res.cookie('refreshToken', data.refreshToken, {
+    httpOnly: true,
+    secure: false,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/',
+  });
+
+  return { accessToken: data.accessToken };
+}
+
+
+@Post('logout')
+@HttpCode(HttpStatus.OK)
+@ApiOperation({ summary: 'Wylogowanie' })
+async logout(
+  @Req() req: Request,
+  @Res({ passthrough: true }) res: Response,
+) {
+  const refreshToken = (req as any).cookies?.refreshToken;
+
+  if (refreshToken) {
+    await this.authService.logout(refreshToken);
   }
 
-  @Post('logout')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Wylogowanie' })
-  logout(@Body('accessToken') accessToken: string) {
-    return this.authService.logout(accessToken);
-  }
+  // Clear the refresh token cookie
+  res.clearCookie('refreshToken', { path: '/' });
+
+  return { message: 'Wylogowano pomyślnie' };
+}
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
