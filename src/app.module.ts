@@ -7,11 +7,13 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { SlotsModule } from './slots/slots.module';
+import { BookingsModule } from './bookings/bookings.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    BookingsModule,
     LocationsModule,
     OrganizationsModule,
     AuthModule,
