@@ -30,7 +30,7 @@ export class VehiclesController {
   }
 
   @Post('types')
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Dodaj typ pojazdu (SUPER_ADMIN)' })
   createType(@Body() dto: CreateVehicleTypeDto) {
@@ -38,7 +38,7 @@ export class VehiclesController {
   }
 
   @Delete('types/:id')
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Usuń typ pojazdu (SUPER_ADMIN)' })
   removeType(@Param('id') id: string) {
@@ -68,7 +68,7 @@ export class VehiclesController {
   }
 
   @Post()
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Dodaj pojazd (SUPER_ADMIN)' })
   create(@Body() dto: CreateVehicleDto) {
@@ -76,7 +76,7 @@ export class VehiclesController {
   }
 
   @Patch(':id')
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Edytuj pojazd (SUPER_ADMIN)' })
   update(@Param('id') id: string, @Body() dto: UpdateVehicleDto) {
@@ -84,7 +84,7 @@ export class VehiclesController {
   }
 
   @Delete(':id')
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Usuń pojazd (SUPER_ADMIN)' })
   remove(@Param('id') id: string) {
