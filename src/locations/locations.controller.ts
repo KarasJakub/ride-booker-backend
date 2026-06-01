@@ -65,8 +65,9 @@ export class LocationsController {
   }
 
   @Post(':id/assign-admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ORG_ADMIN')
-  @UseGuards(RolesGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Przypisz BRANCH_ADMIN do lokalizacji' })
   assignBranchAdmin(
     @Param('id') locationId: string,
