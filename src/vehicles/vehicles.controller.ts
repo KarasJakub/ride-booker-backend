@@ -54,11 +54,10 @@ export class VehiclesController {
   findAll(
     @Query('typeId') typeId?: string,
     @Query('isActive') isActive?: string,
+    @Query('organizationId') organizationId?: string,
   ) {
-    const isActiveBool = isActive !== undefined
-      ? isActive === 'true'
-      : undefined;
-    return this.vehiclesService.findAll(typeId, isActiveBool);
+  const isActiveBool = isActive !== undefined ? isActive === 'true' : undefined
+  return this.vehiclesService.findAll(typeId, isActiveBool, organizationId)
   }
 
   @Get(':id')

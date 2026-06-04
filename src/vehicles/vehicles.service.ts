@@ -48,11 +48,18 @@ export class VehiclesService {
 
   // --- Vehicles ---
 
-  async findAll(typeId?: string, isActive?: boolean) {
+  async findAll(typeId?: string, isActive?: boolean, organizationId?: string) {
     return this.prisma.vehicle.findMany({
       where: {
         ...(typeId && { typeId }),
         ...(isActive !== undefined && { isActive }),
+        ...(organizationId && {
+          inventory: {
+            some: {
+              location: { organizationId },
+            },
+          },
+      }),
       },
       include: {
         type: { select: { id: true, name: true } },

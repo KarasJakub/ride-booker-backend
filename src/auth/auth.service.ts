@@ -58,9 +58,21 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { supabaseId: data.user.id },
       select: {
-        id: true, email: true, fullName: true, role: true, isActive: true,
-      },
-    });
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        isActive: true,
+        organizationId: true,
+        managedLocation: {
+          select: {
+            id: true,
+            name: true,
+            organizationId: true,
+          },
+        },
+        },
+      });
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Konto nieaktywne');
