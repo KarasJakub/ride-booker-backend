@@ -163,11 +163,12 @@ model Slot {
 // ─── Bookings ─────────────────────────────────────────────
 
 model Booking {
-  id        String        @id @default(uuid())
-  status    BookingStatus @default(PENDING)
-  notes     String?
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
+  id              String        @id @default(uuid())
+  status          BookingStatus @default(PENDING)
+  notes           String?
+  rejectionReason String?       @map("rejection_reason")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -58,9 +58,21 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { supabaseId: data.user.id },
       select: {
-        id: true, email: true, fullName: true, role: true, isActive: true,
-      },
-    });
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        isActive: true,
+        organizationId: true,
+        managedLocation: {
+          select: {
+            id: true,
+            name: true,
+            organizationId: true,
+          },
+        },
+        },
+      });
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Konto nieaktywne');
@@ -120,8 +132,20 @@ export class AuthService {
     return this.prisma.user.findUnique({
       where: { id: userId },
       select: {
-        id: true, email: true, fullName: true,
-        phone: true, role: true, createdAt: true,
+        id: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        role: true,
+        createdAt: true,
+        organizationId: true,
+        managedLocation: {
+          select: {
+            id: true,
+            name: true,
+            organizationId: true,
+          },
+        },
       },
     });
   }
@@ -201,6 +225,32 @@ async deleteAccountByAdmin(targetUserId: string) {
   await client.auth.admin.deleteUser(user.supabaseId);
 
   return { message: 'Konto użytkownika zostało usunięte' };
+}
+
+async updateUserRole(targetUserId: string, role: string, requesterId: string, requesterRole: string) {
+  const allowedRoles = ['SUPER_ADMIN', 'ORG_ADMIN', 'BRANCH_ADMIN', 'USER']
+  if (!allowedRoles.includes(role)) {
+    throw new BadRequestException('Nieprawidłowa rola')
+  }
+
+  // ORG_ADMIN could only assign BRANCH_ADMIN
+  if (requesterRole === 'ORG_ADMIN' && role !== 'BRANCH_ADMIN') {
+    throw new BadRequestException('Org Admin może nadawać tylko rolę Branch Admin')
+  }
+
+  // SUPER_ADMIN cannot change itself role and ORG_ADMIN cannot change itself role as well
+  if (targetUserId === requesterId) {
+    throw new BadRequestException('Nie możesz zmienić własnej roli')
+  }
+
+  const user = await this.prisma.user.findUnique({ where: { id: targetUserId } })
+  if (!user) throw new NotFoundException('Użytkownik nie znaleziony')
+
+  return this.prisma.user.update({
+    where: { id: targetUserId },
+    data: { role: role as any },
+    select: { id: true, email: true, fullName: true, role: true },
+  })
 }
 
 }
