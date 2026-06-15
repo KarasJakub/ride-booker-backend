@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export enum BookingStatusAction {
   CONFIRMED = 'CONFIRMED',
@@ -12,4 +12,9 @@ export class UpdateBookingStatusDto {
   @ApiProperty({ enum: BookingStatusAction })
   @IsEnum(BookingStatusAction)
   status!: BookingStatusAction;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  rejectionReason?: string;
 }

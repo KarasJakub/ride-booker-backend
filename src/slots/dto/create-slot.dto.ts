@@ -3,7 +3,7 @@ import { IsBoolean, IsDateString, IsNotEmpty, IsOptional, IsUUID } from 'class-v
 
 export class CreateSlotDto {
   @ApiProperty({ example: 'uuid-location-vehicle' })
-  @IsUUID()
+  //@IsUUID()
   @IsNotEmpty()
   locationVehicleId!: string;
 

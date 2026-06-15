@@ -159,4 +159,19 @@ async logout(
   deleteAccountByAdmin(@Param('id') targetUserId: string) {
     return this.authService.deleteAccountByAdmin(targetUserId);
   }
+  
+  @Patch('users/:id/role')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Zmień rolę użytkownika (SUPER_ADMIN, ORG_ADMIN)' })
+  updateUserRole(
+  @Param('id') targetUserId: string,
+  @Body('role') role: string,
+  @CurrentUser('id') requesterId: string,
+  @CurrentUser('role') requesterRole: string,
+) {
+  return this.authService.updateUserRole(targetUserId, role, requesterId, requesterRole);
+}
 }

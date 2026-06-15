@@ -189,7 +189,8 @@ export class BookingsService {
           },
         },
       },
-    });
+    }
+  );
 
     if (!booking) throw new NotFoundException('Booking not found');
 
@@ -228,7 +229,7 @@ export class BookingsService {
     const [updated] = await this.prisma.$transaction([
       this.prisma.booking.update({
         where: { id },
-        data: { status: dto.status },
+        data: { status: dto.status, ...(dto.rejectionReason && { rejectionReason: dto.rejectionReason }), },
       }),
       ...(freeSlot
         ? [
