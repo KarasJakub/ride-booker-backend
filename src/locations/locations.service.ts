@@ -107,6 +107,14 @@ export class LocationsService {
       throw new BadRequestException('Location already has an assigned admin');
     }
 
+    const existingManagedLocation = await this.prisma.location.findFirst({
+        where: { branchAdminId: userId },
+      });
+        if (existingManagedLocation) {
+          throw new BadRequestException('User already manages another location');
+        }
+
+
     await this.prisma.user.update({
       where: { id: userId },
       data: { role: 'BRANCH_ADMIN' },

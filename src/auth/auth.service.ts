@@ -246,11 +246,82 @@ async updateUserRole(targetUserId: string, role: string, requesterId: string, re
   const user = await this.prisma.user.findUnique({ where: { id: targetUserId } })
   if (!user) throw new NotFoundException('Użytkownik nie znaleziony')
 
+  // If demoting BRANCH_ADMIN, also remove from location
+  if (user.role === 'BRANCH_ADMIN' && role !== 'BRANCH_ADMIN') {
+    await this.prisma.location.updateMany({
+      where: { branchAdminId: targetUserId },
+      data: { branchAdminId: null },
+    })
+  }
+
+  // If demoting ORG_ADMIN, also remove organization association
+  if (user.role === 'ORG_ADMIN' && role !== 'ORG_ADMIN') {
+    await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { organizationId: null },
+    })
+  }
+
   return this.prisma.user.update({
     where: { id: targetUserId },
     data: { role: role as any },
     select: { id: true, email: true, fullName: true, role: true },
   })
+}
+
+async getUsers(search?: string, role?: string, requesterId?: string, requesterRole?: string) {
+  let scopeFilter = {}
+
+  if (requesterRole === 'ORG_ADMIN') {
+    const requester = await this.prisma.user.findUnique({ where: { id: requesterId } })
+
+    scopeFilter = {
+      OR: [
+        { role: 'USER' },
+        {
+          role: 'BRANCH_ADMIN',
+          managedLocation: { organizationId: requester?.organizationId },
+        },
+      ],
+    }
+  }
+
+  return this.prisma.user.findMany({
+    where: {
+      AND: [
+        scopeFilter,
+        ...(search ? [{
+          OR: [
+            { email: { contains: search, mode: 'insensitive' as const } },
+            { fullName: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }] : []),
+        ...(role ? [{ role: role as any }] : []),
+      ],
+    },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      phone: true,
+      role: true,
+      isActive: true,
+      organizationId: true,
+      organization: {
+        select: { id: true, name: true },
+      },
+      managedLocation: {
+        select: { id: true, name: true },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
+}
+
+async createUserByAdmin(dto: RegisterDto, requesterId: string, requesterRole: string) {
+  const result = await this.register(dto)
+  return result
 }
 
 }

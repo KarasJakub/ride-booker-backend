@@ -2,7 +2,7 @@ import {
   Body, Controller, Delete, Get, HttpCode,
   HttpStatus, Param, Patch, Post, Req, UnauthorizedException, UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -14,7 +14,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto'
 import { RolesGuard } from './guards/roles.guard'
 import { Roles } from './decorators/roles.decorator'
 import type { Response } from 'express';
-import { Res } from '@nestjs/common';
+import { Res, Query } from '@nestjs/common';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -174,4 +174,34 @@ async logout(
 ) {
   return this.authService.updateUserRole(targetUserId, role, requesterId, requesterRole);
 }
+
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lista użytkowników (SUPER_ADMIN, ORG_ADMIN)' })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'role', required: false })
+  getUsers(
+  @CurrentUser('id') requesterId: string,
+  @CurrentUser('role') requesterRole: string,
+  @Query('search') search?: string,
+  @Query('role') role?: string,
+) {
+  return this.authService.getUsers(search, role, requesterId, requesterRole)
+}
+
+  @Post('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Utwórz użytkownika (admin)' })
+  createUserByAdmin(
+  @Body() dto: RegisterDto,
+  @CurrentUser('id') requesterId: string,
+  @CurrentUser('role') requesterRole: string,
+) {
+  return this.authService.createUserByAdmin(dto, requesterId, requesterRole)
+}
+
 }
