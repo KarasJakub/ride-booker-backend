@@ -7,10 +7,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleTypeDto } from './dto/create-vehicle-type.dto';
+import { SupabaseService } from '../auth/supabase.service'
 
 @Injectable()
 export class VehiclesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private supabase: SupabaseService,) {}
 
   // --- Vehicles types ---
 
@@ -140,4 +141,22 @@ export class VehiclesService {
 
     return this.prisma.vehicle.delete({ where: { id } });
   }
+
+  async uploadImage(id: string, file: any) {
+    const vehicle = await this.prisma.vehicle.findUnique({ where: { id } });
+    if (!vehicle) throw new NotFoundException('Pojazd nie znaleziony');
+
+    if (!file) throw new BadRequestException('Brak pliku');
+
+    const extension = file.originalname.split('.').pop();
+    const path = `${id}.${extension}`;
+
+    const publicUrl = await this.supabase.uploadFile('vehicles', path, file.buffer, file.mimetype);
+
+    return this.prisma.vehicle.update({
+      where: { id },
+      data: { imageUrl: publicUrl },
+      include: { type: { select: { id: true, name: true } } },
+    });
+}
 }

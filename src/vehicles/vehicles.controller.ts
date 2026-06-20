@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth, ApiOperation,
-  ApiQuery, ApiTags,
+  ApiQuery, ApiTags, ApiConsumes, ApiBody
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -13,6 +13,8 @@ import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleTypeDto } from './dto/create-vehicle-type.dto';
+import { UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('vehicles')
 @ApiBearerAuth()
@@ -89,4 +91,23 @@ export class VehiclesController {
   remove(@Param('id') id: string) {
     return this.vehiclesService.remove(id);
   }
+
+  @Post(':id/image')
+@Roles('SUPER_ADMIN', 'ORG_ADMIN')
+@UseGuards(RolesGuard)
+@UseInterceptors(FileInterceptor('file'))
+@ApiConsumes('multipart/form-data')
+@ApiBody({
+  schema: {
+    type: 'object',
+    properties: { file: { type: 'string', format: 'binary' } },
+  },
+})
+@ApiOperation({ summary: 'Wgraj zdjęcie pojazdu (SUPER_ADMIN, ORG_ADMIN)' })
+uploadImage(
+  @Param('id') id: string,
+  @UploadedFile() file: any,
+) {
+  return this.vehiclesService.uploadImage(id, file);
+}
 }
