@@ -86,7 +86,8 @@ model Location {
   branchAdminId String? @unique @map("branch_admin_id")
   branchAdmin   User?   @relation("BranchAdminLocation", fields: [branchAdminId], references: [id], onDelete: SetNull)
 
-  inventory LocationVehicle[]
+  inventory             LocationVehicle[]
+  notificationTemplates NotificationTemplate[]
 
   @@map("locations")
 }
@@ -193,4 +194,34 @@ model Favorite {
 
   @@unique([userId, vehicleId])
   @@map("favorites")
+}
+
+enum NotificationEventType {
+  BOOKING_CREATED
+  BOOKING_CONFIRMED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  ACCOUNT_CREATED
+  PASSWORD_RESET
+}
+
+enum NotificationRecipientType {
+  USER
+  BRANCH_ADMIN
+}
+
+model NotificationTemplate {
+  id        String                    @id @default(uuid())
+  eventType NotificationEventType     @map("event_type")
+  recipient NotificationRecipientType
+  title     String
+  bodyHtml  String                    @map("body_html")
+  isActive  Boolean                   @default(true) @map("is_active")
+  createdAt DateTime                  @default(now()) @map("created_at")
+  updatedAt DateTime                  @updatedAt @map("updated_at")
+
+  locationId String?   @map("location_id")
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@map("notification_templates")
 }

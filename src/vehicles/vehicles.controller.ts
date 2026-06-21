@@ -15,6 +15,8 @@ import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleTypeDto } from './dto/create-vehicle-type.dto';
 import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { BadRequestException } from '@nestjs/common';
 
 @ApiTags('vehicles')
 @ApiBearerAuth()
@@ -93,21 +95,30 @@ export class VehiclesController {
   }
 
   @Post(':id/image')
-@Roles('SUPER_ADMIN', 'ORG_ADMIN')
-@UseGuards(RolesGuard)
-@UseInterceptors(FileInterceptor('file'))
-@ApiConsumes('multipart/form-data')
-@ApiBody({
-  schema: {
-    type: 'object',
-    properties: { file: { type: 'string', format: 'binary' } },
-  },
-})
-@ApiOperation({ summary: 'Wgraj zdjęcie pojazdu (SUPER_ADMIN, ORG_ADMIN)' })
-uploadImage(
-  @Param('id') id: string,
-  @UploadedFile() file: any,
-) {
-  return this.vehiclesService.uploadImage(id, file);
-}
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
+  @UseGuards(RolesGuard)
+  @UseInterceptors(FileInterceptor('file', {
+  storage: memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, callback) => {
+      if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+        return callback(new BadRequestException('Dozwolone formaty: JPG, PNG, WEBP'), false);
+      }
+      callback(null, true);
+    },
+  }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOperation({ summary: 'Wgraj zdjęcie pojazdu (SUPER_ADMIN, ORG_ADMIN)' })
+  uploadImage(
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    return this.vehiclesService.uploadImage(id, file);
+  }
 }

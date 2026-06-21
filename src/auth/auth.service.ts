@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseService } from './supabase.service';
@@ -11,12 +13,15 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto'
 import { ResetPasswordDto } from './dto/reset-password.dto'
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private supabase: SupabaseService,
+    @Inject(forwardRef(() => NotificationsService))
+    private notifications: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -41,6 +46,13 @@ export class AuthService {
         id: true, email: true, fullName: true, phone: true, role: true,
       },
     });
+
+    await this.notifications.dispatch(
+      'ACCOUNT_CREATED',
+      'USER',
+      user.email,
+      { username: user.fullName ?? user.email },
+    );
 
     return { message: 'Rejestracja zakończona pomyślnie', user };
   }
@@ -201,28 +213,33 @@ async resetPassword(dto: ResetPasswordDto) {
 }
 
 async deleteOwnAccount(userId: string) {
-  const client = this.supabase.getClient();
+  const client = this.supabase.getServiceClient();
 
   const user = await this.prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new UnauthorizedException('Użytkownik nie znaleziony');
 
-  // Delete from prisma
   await this.prisma.user.delete({ where: { id: userId } });
 
-  // Delete from Supabase
-  await client.auth.admin.deleteUser(user.supabaseId);
+  const { error } = await client.auth.admin.deleteUser(user.supabaseId);
+  if (error) {
+    console.error('Błąd usuwania użytkownika z Supabase Auth:', error);
+  }
 
   return { message: 'Konto zostało usunięte' };
 }
 
 async deleteAccountByAdmin(targetUserId: string) {
-  const client = this.supabase.getClient();
+  const client = this.supabase.getServiceClient();
 
   const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
   if (!user) throw new NotFoundException('Użytkownik nie znaleziony');
 
   await this.prisma.user.delete({ where: { id: targetUserId } });
-  await client.auth.admin.deleteUser(user.supabaseId);
+
+  const { error } = await client.auth.admin.deleteUser(user.supabaseId);
+  if (error) {
+    console.error('Błąd usuwania użytkownika z Supabase Auth:', error);
+  }
 
   return { message: 'Konto użytkownika zostało usunięte' };
 }
