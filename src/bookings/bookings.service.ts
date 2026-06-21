@@ -37,6 +37,69 @@ export class BookingsService {
     });
   }
 
+  async findAll(
+    userId: string,
+    userRole: string,
+    organizationId?: string,
+    locationId?: string,
+    vehicleTypeId?: string,
+    vehicleId?: string,
+  ) {
+    let scopeFilter: any = {};
+
+    if (userRole === 'ORG_ADMIN') {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      scopeFilter = {
+        slot: {
+          locationVehicle: {
+            location: { organizationId: user?.organizationId },
+          },
+        },
+      };
+    }
+    // SUPER_ADMIN sees everything — scopeFilter stays {}
+
+    return this.prisma.booking.findMany({
+      where: {
+        AND: [
+          scopeFilter,
+          ...(organizationId
+            ? [{ slot: { locationVehicle: { location: { organizationId } } } }]
+            : []),
+          ...(locationId
+            ? [{ slot: { locationVehicle: { locationId } } }]
+            : []),
+          ...(vehicleTypeId
+            ? [{ slot: { locationVehicle: { vehicle: { typeId: vehicleTypeId } } } }]
+            : []),
+          ...(vehicleId
+            ? [{ slot: { locationVehicle: { vehicleId } } }]
+            : []),
+        ],
+      },
+      include: {
+        user: {
+          select: { id: true, email: true, fullName: true, phone: true },
+        },
+        slot: {
+          include: {
+            locationVehicle: {
+              include: {
+                vehicle: {
+                  select: { id: true, name: true, type: { select: { id: true, name: true } } },
+                },
+                location: {
+                  select: { id: true, name: true, city: true, organizationId: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   // Admin view — reservations of the location
   async findByLocation(locationId: string, userId: string, userRole: string) {
     const location = await this.prisma.location.findUnique({
