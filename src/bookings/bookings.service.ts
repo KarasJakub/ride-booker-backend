@@ -187,7 +187,8 @@ export class BookingsService {
         'USER',
         fullBooking.user.email,
         {
-          username: fullBooking.user.fullName ?? fullBooking.user.email,
+          recipient_name: fullBooking.user.fullName ?? fullBooking.user.email,
+          customer_name: fullBooking.user.fullName ?? fullBooking.user.email,
           vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
           location_name: locationLabel,
           date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),
@@ -205,10 +206,11 @@ export class BookingsService {
           'BRANCH_ADMIN',
           branchAdmin.email,
           {
-            username: fullBooking.user.fullName ?? fullBooking.user.email,
-            vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
-            location_name: locationLabel,
-            date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),
+              recipient_name: branchAdmin.fullName ?? branchAdmin.email,
+              customer_name: fullBooking.user.fullName ?? fullBooking.user.email,
+              vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
+              location_name: locationLabel,
+              date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),
           },
           fullBooking.slot.locationVehicle.locationId,
         );
@@ -305,7 +307,8 @@ export class BookingsService {
         'USER',
         fullBooking.user.email,
         {
-          username: fullBooking.user.fullName ?? fullBooking.user.email,
+          recipient_name: fullBooking.user.fullName ?? fullBooking.user.email,
+          customer_name: fullBooking.user.fullName ?? fullBooking.user.email,
           vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
           location_name: locationLabel,
           date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),
@@ -365,7 +368,8 @@ export class BookingsService {
           'BRANCH_ADMIN',
           branchAdmin.email,
           {
-            username: fullBooking.user.fullName ?? fullBooking.user.email,
+            recipient_name: branchAdmin.fullName ?? branchAdmin.email,
+            customer_name: fullBooking.user.fullName ?? fullBooking.user.email,
             vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
             location_name: locationLabel,
             date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),

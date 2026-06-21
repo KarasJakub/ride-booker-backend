@@ -51,8 +51,8 @@ export class AuthService {
       'ACCOUNT_CREATED',
       'USER',
       user.email,
-      { username: user.fullName ?? user.email },
-    );
+      { recipient_name: user.fullName ?? user.email, customer_name: user.fullName ?? user.email },
+    )
 
     return { message: 'Rejestracja zakończona pomyślnie', user };
   }
