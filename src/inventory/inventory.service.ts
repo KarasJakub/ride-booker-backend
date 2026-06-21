@@ -35,6 +35,45 @@ export class InventoryService {
     }
   }
 
+  async findAll(
+    userId: string,
+    userRole: string,
+    organizationId?: string,
+    locationId?: string,
+  ) {
+    let scopeFilter: any = {};
+
+    if (userRole === 'ORG_ADMIN') {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      scopeFilter = {
+        location: { organizationId: user?.organizationId },
+      };
+    }
+    // SUPER_ADMIN sees everything — scopeFilter stays {}
+
+    return this.prisma.locationVehicle.findMany({
+      where: {
+        AND: [
+          scopeFilter,
+          ...(organizationId
+            ? [{ location: { organizationId } }]
+            : []),
+          ...(locationId
+            ? [{ locationId }]
+            : []),
+        ],
+      },
+      include: {
+        vehicle: {
+          include: { type: { select: { id: true, name: true } } },
+        },
+        location: { select: { id: true, name: true, city: true, organizationId: true } },
+        _count: { select: { slots: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async findByLocation(locationId: string) {
     const location = await this.prisma.location.findUnique({
       where: { id: locationId },

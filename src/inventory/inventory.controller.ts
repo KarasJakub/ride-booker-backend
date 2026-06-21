@@ -21,6 +21,21 @@ import { UpdateInventoryDto } from './dto/update-inventory.dto';
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
+  @Get()
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Cały inwentarz z filtrami (SUPER_ADMIN, ORG_ADMIN)' })
+  @ApiQuery({ name: 'organizationId', required: false })
+  @ApiQuery({ name: 'locationId', required: false })
+  findAll(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Query('organizationId') organizationId?: string,
+    @Query('locationId') locationId?: string,
+  ) {
+    return this.inventoryService.findAll(userId, userRole, organizationId, locationId);
+  }
+
   @Get('location/:locationId')
   @ApiOperation({ summary: 'Pojazdy w lokalizacji' })
   findByLocation(@Param('locationId') locationId: string) {

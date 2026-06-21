@@ -34,6 +34,7 @@ model Organization {
 
   locations Location[]
   users     User[]
+  vehicles  Vehicle[]
 
   @@map("organizations")
 }
@@ -115,6 +116,9 @@ model Vehicle {
 
   typeId String      @map("type_id")
   type   VehicleType @relation(fields: [typeId], references: [id])
+
+  organizationId String?       @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   inventory LocationVehicle[]
   favorites Favorite[]

@@ -17,6 +17,7 @@ import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { BadRequestException } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('vehicles')
 @ApiBearerAuth()
@@ -73,9 +74,13 @@ export class VehiclesController {
   @Post()
   @Roles('SUPER_ADMIN', 'ORG_ADMIN')
   @UseGuards(RolesGuard)
-  @ApiOperation({ summary: 'Dodaj pojazd (SUPER_ADMIN)' })
-  create(@Body() dto: CreateVehicleDto) {
-    return this.vehiclesService.create(dto);
+  @ApiOperation({ summary: 'Dodaj pojazd (SUPER_ADMIN, ORG_ADMIN)' })
+  create(
+    @Body() dto: CreateVehicleDto,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+  ) {
+    return this.vehiclesService.create(dto, userId, userRole);
   }
 
   @Patch(':id')

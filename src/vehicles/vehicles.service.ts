@@ -50,25 +50,19 @@ export class VehiclesService {
   // --- Vehicles ---
 
   async findAll(typeId?: string, isActive?: boolean, organizationId?: string) {
-    return this.prisma.vehicle.findMany({
-      where: {
-        ...(typeId && { typeId }),
-        ...(isActive !== undefined && { isActive }),
-        ...(organizationId && {
-          inventory: {
-            some: {
-              location: { organizationId },
-            },
-          },
-      }),
-      },
-      include: {
-        type: { select: { id: true, name: true } },
-        _count: { select: { inventory: true, favorites: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
-  }
+  return this.prisma.vehicle.findMany({
+    where: {
+      ...(typeId && { typeId }),
+      ...(isActive !== undefined && { isActive }),
+      ...(organizationId && { organizationId }),
+    },
+    include: {
+      type: { select: { id: true, name: true } },
+      _count: { select: { inventory: true, favorites: true } },
+    },
+    orderBy: { name: 'asc' },
+  });
+}
 
   async findOne(id: string) {
     const vehicle = await this.prisma.vehicle.findUnique({
@@ -92,19 +86,40 @@ export class VehiclesService {
     return vehicle;
   }
 
-  async create(dto: CreateVehicleDto) {
-    const type = await this.prisma.vehicleType.findUnique({
-      where: { id: dto.typeId },
-    });
-    if (!type) throw new NotFoundException('Typ pojazdu nie znaleziony');
+  async create(dto: CreateVehicleDto, userId: string, userRole: string) {
+  const type = await this.prisma.vehicleType.findUnique({
+    where: { id: dto.typeId },
+  });
+  if (!type) throw new NotFoundException('Typ pojazdu nie znaleziony');
 
-    return this.prisma.vehicle.create({
-      data: dto,
-      include: {
-        type: { select: { id: true, name: true } },
-      },
-    });
+  let organizationId = dto.organizationId;
+
+  if (userRole === 'ORG_ADMIN') {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.organizationId) {
+      throw new BadRequestException('Nie masz przypisanej organizacji');
+    }
+    if (dto.organizationId !== user.organizationId) {
+      throw new BadRequestException('Możesz dodawać pojazdy tylko do swojej organizacji');
+    }
+    organizationId = user.organizationId;
   }
+
+  return this.prisma.vehicle.create({
+    data: {
+      name: dto.name,
+      typeId: dto.typeId,
+      organizationId,
+      engineCapacity: dto.engineCapacity,
+      power: dto.power,
+      description: dto.description,
+      imageUrl: dto.imageUrl,
+    },
+    include: {
+      type: { select: { id: true, name: true } },
+    },
+  });
+}
 
   async update(id: string, dto: UpdateVehicleDto) {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id } });

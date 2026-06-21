@@ -12,6 +12,10 @@ export class CreateVehicleDto {
   @IsString()
   typeId!: string;
 
+  @ApiProperty({ example: 'uuid-organizacji' })
+  @IsString()
+  organizationId!: string;
+
   @ApiPropertyOptional({ example: 689 })
   @IsOptional()
   @IsInt()
