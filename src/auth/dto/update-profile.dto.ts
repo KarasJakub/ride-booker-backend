@@ -17,8 +17,8 @@ export class UpdateProfileDto {
   @IsEmail()
   email?: string;
 
-  @ApiPropertyOptional({ example: 'Haslo123!' })
+  @ApiPropertyOptional({ example: 'password' })
   @IsOptional()
   @IsString()
-  password?: string; // wymagane tylko jeśli zmienia email
+  password?: string; // required for verification when changing email or password
 }

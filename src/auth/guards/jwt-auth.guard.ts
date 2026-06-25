@@ -19,7 +19,7 @@ export class JwtAuthGuard implements CanActivate {
     const authorization = request.headers['authorization'];
 
     if (!authorization?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Brak tokena');
+      throw new UnauthorizedException('No token provided');
     }
 
     const token = authorization.replace('Bearer ', '');
@@ -29,7 +29,7 @@ export class JwtAuthGuard implements CanActivate {
     const { data, error } = await client.auth.getUser();
 
     if (error || !data.user) {
-      throw new UnauthorizedException('Nieważny token');
+      throw new UnauthorizedException('Invalid token');
     }
 
     const user = await this.prisma.user.findUnique({
@@ -44,7 +44,7 @@ export class JwtAuthGuard implements CanActivate {
     });
 
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Użytkownik nie znaleziony lub nieaktywny');
+      throw new UnauthorizedException('User not found or inactive');
     }
 
     request.user = user;

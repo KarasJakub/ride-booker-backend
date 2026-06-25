@@ -28,20 +28,20 @@ export class VehiclesService {
     const existing = await this.prisma.vehicleType.findUnique({
       where: { name: dto.name },
     });
-    if (existing) throw new BadRequestException('Typ pojazdu już istnieje');
+    if (existing) throw new BadRequestException('This vehicle type already exists');
 
     return this.prisma.vehicleType.create({ data: dto });
   }
 
   async removeType(id: string) {
     const type = await this.prisma.vehicleType.findUnique({ where: { id } });
-    if (!type) throw new NotFoundException('Typ pojazdu nie znaleziony');
+    if (!type) throw new NotFoundException('Vehicle type not found');
 
     const vehiclesCount = await this.prisma.vehicle.count({
       where: { typeId: id },
     });
     if (vehiclesCount > 0) {
-      throw new BadRequestException('Nie można usunąć typu który ma przypisane pojazdy');
+      throw new BadRequestException('You cannot delete a type that has assigned vehicles');
     }
 
     return this.prisma.vehicleType.delete({ where: { id } });
@@ -82,7 +82,7 @@ export class VehiclesService {
       },
     });
 
-    if (!vehicle) throw new NotFoundException('Pojazd nie znaleziony');
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
     return vehicle;
   }
 
@@ -90,17 +90,17 @@ export class VehiclesService {
   const type = await this.prisma.vehicleType.findUnique({
     where: { id: dto.typeId },
   });
-  if (!type) throw new NotFoundException('Typ pojazdu nie znaleziony');
+  if (!type) throw new NotFoundException('Vehicle type not found');
 
   let organizationId = dto.organizationId;
 
   if (userRole === 'ORG_ADMIN') {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.organizationId) {
-      throw new BadRequestException('Nie masz przypisanej organizacji');
+      throw new BadRequestException('You do not have an assigned organization');
     }
     if (dto.organizationId !== user.organizationId) {
-      throw new BadRequestException('Możesz dodawać pojazdy tylko do swojej organizacji');
+      throw new BadRequestException('You can only add vehicles to your own organization');
     }
     organizationId = user.organizationId;
   }
@@ -123,13 +123,13 @@ export class VehiclesService {
 
   async update(id: string, dto: UpdateVehicleDto) {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id } });
-    if (!vehicle) throw new NotFoundException('Pojazd nie znaleziony');
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     if (dto.typeId) {
       const type = await this.prisma.vehicleType.findUnique({
         where: { id: dto.typeId },
       });
-      if (!type) throw new NotFoundException('Typ pojazdu nie znaleziony');
+      if (!type) throw new NotFoundException('Vehicle type not found');
     }
 
     return this.prisma.vehicle.update({
@@ -143,14 +143,14 @@ export class VehiclesService {
 
   async remove(id: string) {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id } });
-    if (!vehicle) throw new NotFoundException('Pojazd nie znaleziony');
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     const inventoryCount = await this.prisma.locationVehicle.count({
       where: { vehicleId: id },
     });
     if (inventoryCount > 0) {
       throw new BadRequestException(
-        'Nie można usunąć pojazdu który jest przypisany do lokalizacji',
+        'You cannot delete a vehicle that is assigned to a location',
       );
     }
 
@@ -159,9 +159,9 @@ export class VehiclesService {
 
   async uploadImage(id: string, file: any) {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { id } });
-    if (!vehicle) throw new NotFoundException('Pojazd nie znaleziony');
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
 
-    if (!file) throw new BadRequestException('Brak pliku');
+    if (!file) throw new BadRequestException('No file provided');
 
     const extension = file.originalname.split('.').pop();
     const path = `${id}.${extension}`;

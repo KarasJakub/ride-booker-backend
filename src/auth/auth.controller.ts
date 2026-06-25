@@ -159,7 +159,7 @@ async logout(
   deleteAccountByAdmin(@Param('id') targetUserId: string) {
     return this.authService.deleteAccountByAdmin(targetUserId);
   }
-  
+
   @Patch('users/:id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ORG_ADMIN')

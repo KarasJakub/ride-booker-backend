@@ -12,7 +12,7 @@ export class NotificationsService {
     private emailService: EmailService,
   ) {}
 
-  // --- Wysyłka na podstawie zdarzenia ---
+  // Sending email based on event
 
   async dispatch(
     eventType: string,
@@ -21,7 +21,7 @@ export class NotificationsService {
     variables: Record<string, string>,
     locationId?: string,
   ) {
-    // Szukamy szablonu: najpierw przypisanego do oddziału, potem globalnego
+    // Search for the most specific template: first look for location-specific, then global
     const template = await this.prisma.notificationTemplate.findFirst({
       where: {
         eventType: eventType as any,
@@ -32,11 +32,11 @@ export class NotificationsService {
           { locationId: null },
         ],
       },
-      orderBy: { locationId: 'desc' }, // przypisany do lokalizacji ma priorytet nad globalnym
+      orderBy: { locationId: 'desc' }, // Prefer location-specific over global
     });
 
     if (!template) {
-      console.warn(`Brak aktywnego szablonu dla ${eventType} / ${recipientType}`);
+      console.warn(`No active template found for ${eventType} / ${recipientType}`);
       return { sent: false, reason: 'no_template' };
     }
 
@@ -47,7 +47,7 @@ export class NotificationsService {
     return { sent: result.success, templateId: template.id };
   }
 
-  // --- CRUD szablonów ---
+  // --- CRUD templates ---
 
   async findAll(userId: string, userRole: string) {
     let where: any = {};
@@ -66,7 +66,7 @@ export class NotificationsService {
         ],
       };
     }
-    // SUPER_ADMIN widzi wszystko — where zostaje {}
+    // SUPER_ADMIN can see all templates, so no additional filtering needed
 
     return this.prisma.notificationTemplate.findMany({
       where,
@@ -83,12 +83,12 @@ export class NotificationsService {
         where: { branchAdminId: userId },
       });
       if (!location || dto.locationId !== location.id) {
-        throw new BadRequestException('Możesz tworzyć szablony tylko dla swojego oddziału');
+        throw new BadRequestException('You can only create templates for your own branch');
       }
     }
 
     if (!dto.locationId && userRole !== 'SUPER_ADMIN' && userRole !== 'ORG_ADMIN') {
-      throw new BadRequestException('Tylko Super Admin i Org Admin mogą tworzyć szablony globalne');
+      throw new BadRequestException('Only Super Admin and Org Admin can create global templates');
     }
 
     return this.prisma.notificationTemplate.create({
@@ -99,14 +99,14 @@ export class NotificationsService {
 
   async update(id: string, dto: UpdateNotificationTemplateDto, userId: string, userRole: string) {
     const template = await this.prisma.notificationTemplate.findUnique({ where: { id } });
-    if (!template) throw new NotFoundException('Szablon nie znaleziony');
+    if (!template) throw new NotFoundException('Template not found');
 
     if (userRole === 'BRANCH_ADMIN') {
       const location = await this.prisma.location.findFirst({
         where: { branchAdminId: userId },
       });
       if (template.locationId !== location?.id) {
-        throw new BadRequestException('Brak dostępu do tego szablonu');
+        throw new BadRequestException('You do not have access to this template');
       }
     }
 
@@ -119,14 +119,14 @@ export class NotificationsService {
 
   async remove(id: string, userId: string, userRole: string) {
     const template = await this.prisma.notificationTemplate.findUnique({ where: { id } });
-    if (!template) throw new NotFoundException('Szablon nie znaleziony');
+    if (!template) throw new NotFoundException('Template not found');
 
     if (userRole === 'BRANCH_ADMIN') {
       const location = await this.prisma.location.findFirst({
         where: { branchAdminId: userId },
       });
       if (template.locationId !== location?.id) {
-        throw new BadRequestException('Brak dostępu do tego szablonu');
+        throw new BadRequestException('You do not have access to this template');
       }
     }
 
