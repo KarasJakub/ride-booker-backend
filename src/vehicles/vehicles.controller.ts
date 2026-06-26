@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth, ApiOperation,
-  ApiQuery, ApiTags,
+  ApiQuery, ApiTags, ApiConsumes, ApiBody
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -13,6 +13,11 @@ import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleTypeDto } from './dto/create-vehicle-type.dto';
+import { UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { BadRequestException } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('vehicles')
 @ApiBearerAuth()
@@ -69,9 +74,13 @@ export class VehiclesController {
   @Post()
   @Roles('SUPER_ADMIN', 'ORG_ADMIN')
   @UseGuards(RolesGuard)
-  @ApiOperation({ summary: 'Dodaj pojazd (SUPER_ADMIN)' })
-  create(@Body() dto: CreateVehicleDto) {
-    return this.vehiclesService.create(dto);
+  @ApiOperation({ summary: 'Dodaj pojazd (SUPER_ADMIN, ORG_ADMIN)' })
+  create(
+    @Body() dto: CreateVehicleDto,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+  ) {
+    return this.vehiclesService.create(dto, userId, userRole);
   }
 
   @Patch(':id')
@@ -88,5 +97,33 @@ export class VehiclesController {
   @ApiOperation({ summary: 'Usuń pojazd (SUPER_ADMIN)' })
   remove(@Param('id') id: string) {
     return this.vehiclesService.remove(id);
+  }
+
+  @Post(':id/image')
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
+  @UseGuards(RolesGuard)
+  @UseInterceptors(FileInterceptor('file', {
+  storage: memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, callback) => {
+      if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+        return callback(new BadRequestException('Dozwolone formaty: JPG, PNG, WEBP'), false);
+      }
+      callback(null, true);
+    },
+  }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOperation({ summary: 'Wgraj zdjęcie pojazdu (SUPER_ADMIN, ORG_ADMIN)' })
+  uploadImage(
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    return this.vehiclesService.uploadImage(id, file);
   }
 }

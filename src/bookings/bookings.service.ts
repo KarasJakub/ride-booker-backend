@@ -7,10 +7,11 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
+import { NotificationsService } from '../notifications/notifications.service'
 
 @Injectable()
 export class BookingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notifications: NotificationsService,) {}
 
   // User view — reservations of the user
   async findMine(userId: string) {
@@ -26,6 +27,69 @@ export class BookingsService {
                 },
                 location: {
                   select: { id: true, name: true, city: true, address: true, phone: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findAll(
+    userId: string,
+    userRole: string,
+    organizationId?: string,
+    locationId?: string,
+    vehicleTypeId?: string,
+    vehicleId?: string,
+  ) {
+    let scopeFilter: any = {};
+
+    if (userRole === 'ORG_ADMIN') {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      scopeFilter = {
+        slot: {
+          locationVehicle: {
+            location: { organizationId: user?.organizationId },
+          },
+        },
+      };
+    }
+    // SUPER_ADMIN sees everything — scopeFilter stays {}
+
+    return this.prisma.booking.findMany({
+      where: {
+        AND: [
+          scopeFilter,
+          ...(organizationId
+            ? [{ slot: { locationVehicle: { location: { organizationId } } } }]
+            : []),
+          ...(locationId
+            ? [{ slot: { locationVehicle: { locationId } } }]
+            : []),
+          ...(vehicleTypeId
+            ? [{ slot: { locationVehicle: { vehicle: { typeId: vehicleTypeId } } } }]
+            : []),
+          ...(vehicleId
+            ? [{ slot: { locationVehicle: { vehicleId } } }]
+            : []),
+        ],
+      },
+      include: {
+        user: {
+          select: { id: true, email: true, fullName: true, phone: true },
+        },
+        slot: {
+          include: {
+            locationVehicle: {
+              include: {
+                vehicle: {
+                  select: { id: true, name: true, type: { select: { id: true, name: true } } },
+                },
+                location: {
+                  select: { id: true, name: true, city: true, organizationId: true },
                 },
               },
             },
@@ -115,12 +179,14 @@ export class BookingsService {
     // 1. Check slot
     const slot = await this.prisma.slot.findUnique({
       where: { id: dto.slotId },
-      include: { booking: true },
+      include: { booking: { select: { status: true } } },
     });
 
     if (!slot) throw new NotFoundException('Slot not found');
     if (!slot.isAvailable) throw new BadRequestException('Slot is not available');
-    if (slot.booking) throw new BadRequestException('Slot is already booked');
+    if (slot.booking && !['CANCELLED', 'REJECTED'].includes(slot.booking.status)) {
+      throw new BadRequestException('Slot is already booked');
+    }
     if (slot.startTime < new Date()) {
       throw new BadRequestException('Cannot book slots in the past');
     }
@@ -168,6 +234,53 @@ export class BookingsService {
         data: { isAvailable: false },
       }),
     ]);
+
+    // 4. Notifications
+    const fullBooking = await this.prisma.booking.findUnique({
+      where: { id: booking.id },
+      include: {
+        user: true,
+        slot: { include: { locationVehicle: { include: { vehicle: true, location: true } } } },
+      },
+    });
+
+    if (fullBooking) {
+      const locationLabel = `${fullBooking.slot.locationVehicle.location.name}, ${fullBooking.slot.locationVehicle.location.address ?? ''} ${fullBooking.slot.locationVehicle.location.city}`.trim();
+
+      await this.notifications.dispatch(
+        'BOOKING_CREATED',
+        'USER',
+        fullBooking.user.email,
+        {
+          recipient_name: fullBooking.user.fullName ?? fullBooking.user.email,
+          customer_name: fullBooking.user.fullName ?? fullBooking.user.email,
+          vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
+          location_name: locationLabel,
+          date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),
+        },
+        fullBooking.slot.locationVehicle.locationId,
+      );
+
+      const branchAdmin = await this.prisma.user.findFirst({
+        where: { managedLocation: { id: fullBooking.slot.locationVehicle.locationId } },
+      });
+
+      if (branchAdmin) {
+        await this.notifications.dispatch(
+          'BOOKING_CREATED',
+          'BRANCH_ADMIN',
+          branchAdmin.email,
+          {
+              recipient_name: branchAdmin.fullName ?? branchAdmin.email,
+              customer_name: fullBooking.user.fullName ?? fullBooking.user.email,
+              vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
+              location_name: locationLabel,
+              date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),
+          },
+          fullBooking.slot.locationVehicle.locationId,
+        );
+      }
+    }
 
     return booking;
   }
@@ -241,6 +354,35 @@ export class BookingsService {
         : []),
     ]);
 
+    // Notifications
+    const fullBooking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        slot: { include: { locationVehicle: { include: { vehicle: true, location: true } } } },
+      },
+    });
+
+    if (fullBooking) {
+      const eventType = dto.status === 'CONFIRMED' ? 'BOOKING_CONFIRMED' : 'BOOKING_REJECTED';
+      const locationLabel = `${fullBooking.slot.locationVehicle.location.name}, ${fullBooking.slot.locationVehicle.location.address ?? ''} ${fullBooking.slot.locationVehicle.location.city}`.trim();
+
+      await this.notifications.dispatch(
+        eventType,
+        'USER',
+        fullBooking.user.email,
+        {
+          recipient_name: fullBooking.user.fullName ?? fullBooking.user.email,
+          customer_name: fullBooking.user.fullName ?? fullBooking.user.email,
+          vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
+          location_name: locationLabel,
+          date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),
+          rejection_reason: dto.rejectionReason ?? '',
+        },
+        fullBooking.slot.locationVehicle.locationId,
+      );
+    }
+
     return updated;
   }
 
@@ -268,6 +410,39 @@ export class BookingsService {
         data: { isAvailable: true },
       }),
     ]);
+
+    // Notifications
+    const fullBooking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        slot: { include: { locationVehicle: { include: { vehicle: true, location: true } } } },
+      },
+    });
+
+    if (fullBooking) {
+      const locationLabel = `${fullBooking.slot.locationVehicle.location.name}, ${fullBooking.slot.locationVehicle.location.address ?? ''} ${fullBooking.slot.locationVehicle.location.city}`.trim();
+
+      const branchAdmin = await this.prisma.user.findFirst({
+        where: { managedLocation: { id: fullBooking.slot.locationVehicle.locationId } },
+      });
+
+      if (branchAdmin) {
+        await this.notifications.dispatch(
+          'BOOKING_CANCELLED',
+          'BRANCH_ADMIN',
+          branchAdmin.email,
+          {
+            recipient_name: branchAdmin.fullName ?? branchAdmin.email,
+            customer_name: fullBooking.user.fullName ?? fullBooking.user.email,
+            vehicle_name: fullBooking.slot.locationVehicle.vehicle.name,
+            location_name: locationLabel,
+            date: fullBooking.slot.startTime.toLocaleDateString('pl-PL'),
+          },
+          fullBooking.slot.locationVehicle.locationId,
+        );
+      }
+    }
 
     return updated;
   }

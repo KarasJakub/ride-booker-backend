@@ -13,27 +13,71 @@ export class SlotsService {
   constructor(private prisma: PrismaService) {}
 
   // Helper - checks if user has access to the locationVehicle
-  private async assertAccess(userId: string, userRole: string, locationVehicleId: string) {
-    if (userRole === 'SUPER_ADMIN') return;
+private async assertAccess(userId: string, userRole: string, locationVehicleId: string) {
+  if (userRole === 'SUPER_ADMIN') return;
 
-    const lv = await this.prisma.locationVehicle.findUnique({
-      where: { id: locationVehicleId },
-      include: { location: true },
-    });
-    if (!lv) throw new NotFoundException('Inventory item not found');
+  const lv = await this.prisma.locationVehicle.findUnique({
+    where: { id: locationVehicleId },
+    include: { location: true },
+  });
+  if (!lv) throw new NotFoundException('Inventory item not found');
+
+  if (userRole === 'ORG_ADMIN') {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (user?.organizationId !== lv.location.organizationId) {
+      throw new ForbiddenException('No access to this location');
+    }
+  }
+
+  if (userRole === 'BRANCH_ADMIN') {
+    if (lv.location.branchAdminId !== userId) {
+      throw new ForbiddenException('You can only manage slots for your location');
+    }
+  }
+}
+
+  // Admin view — all slots with optional filters (SUPER_ADMIN, ORG_ADMIN)
+  async findAll(
+    userId: string,
+    userRole: string,
+    organizationId?: string,
+    locationId?: string,
+  ) {
+    let scopeFilter: any = {};
 
     if (userRole === 'ORG_ADMIN') {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (user?.organizationId !== lv.location.organizationId) {
-        throw new ForbiddenException('No access to this location');
-      }
+      scopeFilter = {
+        locationVehicle: {
+          location: { organizationId: user?.organizationId },
+        },
+      };
     }
+    // SUPER_ADMIN sees everything — scopeFilter stays {}
 
-    if (userRole === 'BRANCH_ADMIN') {
-      if (lv.location.branchAdminId !== userId) {
-        throw new ForbiddenException('You can only manage slots for your location');
-      }
-    }
+    return this.prisma.slot.findMany({
+      where: {
+        AND: [
+          scopeFilter,
+          { startTime: { gte: new Date() } },
+          ...(organizationId
+            ? [{ locationVehicle: { location: { organizationId } } }]
+            : []),
+          ...(locationId
+            ? [{ locationVehicle: { locationId } }]
+            : []),
+        ],
+      },
+      include: {
+        locationVehicle: {
+          include: {
+            vehicle: { select: { id: true, name: true, imageUrl: true } },
+            location: { select: { id: true, name: true, city: true, organizationId: true } },
+          },
+        },
+      },
+      orderBy: { startTime: 'asc' },
+    });
   }
 
   async findByLocationVehicle(locationVehicleId: string, onlyAvailable?: boolean) {

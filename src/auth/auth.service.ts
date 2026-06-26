@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseService } from './supabase.service';
@@ -11,12 +13,15 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto'
 import { ResetPasswordDto } from './dto/reset-password.dto'
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private supabase: SupabaseService,
+    @Inject(forwardRef(() => NotificationsService))
+    private notifications: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -28,7 +33,7 @@ export class AuthService {
     });
 
     if (error) throw new BadRequestException(error.message);
-    if (!data.user) throw new BadRequestException('Błąd rejestracji');
+    if (!data.user) throw new BadRequestException('Error occurred during registration');
 
     const user = await this.prisma.user.create({
       data: {
@@ -42,7 +47,14 @@ export class AuthService {
       },
     });
 
-    return { message: 'Rejestracja zakończona pomyślnie', user };
+    await this.notifications.dispatch(
+      'ACCOUNT_CREATED',
+      'USER',
+      user.email,
+      { recipient_name: user.fullName ?? user.email, customer_name: user.fullName ?? user.email },
+    )
+
+    return { message: 'Registration completed successfully', user };
   }
 
   async login(dto: LoginDto) {
@@ -53,7 +65,7 @@ export class AuthService {
       password: dto.password,
     });
 
-    if (error) throw new UnauthorizedException('Nieprawidłowy email lub hasło');
+    if (error) throw new UnauthorizedException('Invalid email or password');
 
     const user = await this.prisma.user.findUnique({
       where: { supabaseId: data.user.id },
@@ -75,7 +87,7 @@ export class AuthService {
       });
 
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Konto nieaktywne');
+      throw new UnauthorizedException('Account is inactive');
     }
 
     return {
@@ -92,7 +104,7 @@ export class AuthService {
       refresh_token: refreshToken,
     });
 
-    if (error) throw new UnauthorizedException('Nieważny refresh token');
+    if (error) throw new UnauthorizedException('Invalid refresh token');
 
     return {
       accessToken: data?.session?.access_token,
@@ -103,21 +115,21 @@ export class AuthService {
   async logout(accessToken: string) {
     const client = this.supabase.getClient();
     await client.auth.signOut();
-    return { message: 'Wylogowano pomyślnie' };
+    return { message: 'Logged out successfully' };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const client = this.supabase.getClient();
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException('Użytkownik nie znaleziony');
+    if (!user) throw new UnauthorizedException('User not found');
 
     const { error: loginError } = await client.auth.signInWithPassword({
       email: user.email,
       password: dto.oldPassword,
     });
 
-    if (loginError) throw new UnauthorizedException('Stare hasło jest nieprawidłowe');
+    if (loginError) throw new UnauthorizedException('Invalid current password');
 
     const { error } = await client.auth.updateUser({
       password: dto.newPassword,
@@ -125,7 +137,7 @@ export class AuthService {
 
     if (error) throw new BadRequestException(error.message);
 
-    return { message: 'Hasło zostało zmienione' };
+    return { message: 'Password has been changed' };
   }
 
   async getMe(userId: string) {
@@ -154,19 +166,19 @@ export class AuthService {
   const client = this.supabase.getClient();
 
   const user = await this.prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw new UnauthorizedException('Użytkownik nie znaleziony');
+  if (!user) throw new UnauthorizedException('User not found');
 
   // Require password if email is being changed
   if (dto.email && dto.email !== user.email) {
     if (!dto.password) {
-      throw new BadRequestException('Podaj hasło aby zmienić email');
+      throw new BadRequestException('Provide password to change email');
     }
 
     const { error: loginError } = await client.auth.signInWithPassword({
       email: user.email,
       password: dto.password,
     });
-    if (loginError) throw new UnauthorizedException('Nieprawidłowe hasło');
+    if (loginError) throw new UnauthorizedException('Invalid password');
 
     const { error: supabaseError } = await client.auth.updateUser({
       email: dto.email,
@@ -196,61 +208,136 @@ async resetPassword(dto: ResetPasswordDto) {
 
   if (error) throw new BadRequestException(error.message);
 
-  // TODO: "Make it more dynamic and in EN"
-  return { message: 'Jeśli konto istnieje, wysłaliśmy link do resetowania hasła' };
+  return { message: 'If the account exists, we have sent a link to reset your password' };
 }
 
 async deleteOwnAccount(userId: string) {
-  const client = this.supabase.getClient();
+  const client = this.supabase.getServiceClient();
 
   const user = await this.prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw new UnauthorizedException('Użytkownik nie znaleziony');
+  if (!user) throw new UnauthorizedException('User not found');
 
-  // Delete from prisma
   await this.prisma.user.delete({ where: { id: userId } });
 
-  // Delete from Supabase
-  await client.auth.admin.deleteUser(user.supabaseId);
+  const { error } = await client.auth.admin.deleteUser(user.supabaseId);
+  if (error) {
+    console.error('Error deleting user from Supabase Auth:', error);
+  }
 
-  return { message: 'Konto zostało usunięte' };
+  return { message: 'Account has been deleted' };
 }
 
 async deleteAccountByAdmin(targetUserId: string) {
-  const client = this.supabase.getClient();
+  const client = this.supabase.getServiceClient();
 
   const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
-  if (!user) throw new NotFoundException('Użytkownik nie znaleziony');
+  if (!user) throw new NotFoundException('User not found');
 
   await this.prisma.user.delete({ where: { id: targetUserId } });
-  await client.auth.admin.deleteUser(user.supabaseId);
 
-  return { message: 'Konto użytkownika zostało usunięte' };
+  const { error } = await client.auth.admin.deleteUser(user.supabaseId);
+  if (error) {
+    console.error('Error deleting user from Supabase Auth:', error);
+  }
+
+  return { message: 'User account has been deleted' };
 }
 
 async updateUserRole(targetUserId: string, role: string, requesterId: string, requesterRole: string) {
   const allowedRoles = ['SUPER_ADMIN', 'ORG_ADMIN', 'BRANCH_ADMIN', 'USER']
   if (!allowedRoles.includes(role)) {
-    throw new BadRequestException('Nieprawidłowa rola')
+    throw new BadRequestException('Invalid role')
   }
 
   // ORG_ADMIN could only assign BRANCH_ADMIN
   if (requesterRole === 'ORG_ADMIN' && role !== 'BRANCH_ADMIN') {
-    throw new BadRequestException('Org Admin może nadawać tylko rolę Branch Admin')
+    throw new BadRequestException('Org Admin can only assign BRANCH_ADMIN role')
   }
 
   // SUPER_ADMIN cannot change itself role and ORG_ADMIN cannot change itself role as well
   if (targetUserId === requesterId) {
-    throw new BadRequestException('Nie możesz zmienić własnej roli')
+    throw new BadRequestException('You cannot change your own role')
   }
 
   const user = await this.prisma.user.findUnique({ where: { id: targetUserId } })
-  if (!user) throw new NotFoundException('Użytkownik nie znaleziony')
+  if (!user) throw new NotFoundException('User not found')
+
+  // If demoting BRANCH_ADMIN, also remove from location
+  if (user.role === 'BRANCH_ADMIN' && role !== 'BRANCH_ADMIN') {
+    await this.prisma.location.updateMany({
+      where: { branchAdminId: targetUserId },
+      data: { branchAdminId: null },
+    })
+  }
+
+  // If demoting ORG_ADMIN, also remove organization association
+  if (user.role === 'ORG_ADMIN' && role !== 'ORG_ADMIN') {
+    await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { organizationId: null },
+    })
+  }
 
   return this.prisma.user.update({
     where: { id: targetUserId },
     data: { role: role as any },
     select: { id: true, email: true, fullName: true, role: true },
   })
+}
+
+async getUsers(search?: string, role?: string, requesterId?: string, requesterRole?: string) {
+  let scopeFilter = {}
+
+  if (requesterRole === 'ORG_ADMIN') {
+    const requester = await this.prisma.user.findUnique({ where: { id: requesterId } })
+
+    scopeFilter = {
+      OR: [
+        { role: 'USER' },
+        {
+          role: 'BRANCH_ADMIN',
+          managedLocation: { organizationId: requester?.organizationId },
+        },
+      ],
+    }
+  }
+
+  return this.prisma.user.findMany({
+    where: {
+      AND: [
+        scopeFilter,
+        ...(search ? [{
+          OR: [
+            { email: { contains: search, mode: 'insensitive' as const } },
+            { fullName: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }] : []),
+        ...(role ? [{ role: role as any }] : []),
+      ],
+    },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      phone: true,
+      role: true,
+      isActive: true,
+      organizationId: true,
+      organization: {
+        select: { id: true, name: true },
+      },
+      managedLocation: {
+        select: { id: true, name: true },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
+}
+
+async createUserByAdmin(dto: RegisterDto, requesterId: string, requesterRole: string) {
+  const result = await this.register(dto)
+  return result
 }
 
 }

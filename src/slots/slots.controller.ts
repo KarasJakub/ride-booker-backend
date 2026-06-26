@@ -21,11 +21,27 @@ import { UpdateSlotDto } from './dto/update-slot.dto';
 export class SlotsController {
   constructor(private readonly slotsService: SlotsService) {}
 
+  @Get()
+  @Roles('SUPER_ADMIN', 'ORG_ADMIN')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Wszystkie sloty z filtrami (SUPER_ADMIN, ORG_ADMIN)' })
+  @ApiQuery({ name: 'organizationId', required: false })
+  @ApiQuery({ name: 'locationId', required: false })
+  findAll(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Query('organizationId') organizationId?: string,
+    @Query('locationId') locationId?: string,
+  ) {
+    return this.slotsService.findAll(userId, userRole, organizationId, locationId);
+  }
+
   @Get('location/:locationId')
   @ApiOperation({ summary: 'Wszystkie sloty w lokalizacji' })
   findByLocation(@Param('locationId') locationId: string) {
     return this.slotsService.findByLocation(locationId);
   }
+
 
   @Get('inventory/:locationVehicleId')
   @ApiOperation({ summary: 'Sloty dla konkretnego pojazdu w lokalizacji' })

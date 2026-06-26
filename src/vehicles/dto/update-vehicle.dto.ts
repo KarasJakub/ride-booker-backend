@@ -9,7 +9,6 @@ export class UpdateVehicleDto {
 
   @ApiPropertyOptional({ example: 'uuid-typu' })
   @IsOptional()
-  // @IsUUID()
   @IsString()
   typeId?: string;
 

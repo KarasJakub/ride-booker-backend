@@ -8,9 +8,12 @@ export class CreateVehicleDto {
   name!: string;
 
   @ApiProperty({ example: 'uuid-typu' })
-  // @IsUUID()
   @IsString()
   typeId!: string;
+
+  @ApiProperty({ example: 'uuid-organizacji' })
+  @IsString()
+  organizationId!: string;
 
   @ApiPropertyOptional({ example: 689 })
   @IsOptional()

@@ -34,6 +34,7 @@ model Organization {
 
   locations Location[]
   users     User[]
+  vehicles  Vehicle[]
 
   @@map("organizations")
 }
@@ -51,11 +52,11 @@ model User {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  // ORG_ADMIN — należy do organizacji
+  // ORG_ADMIN — belongs to organization
   organizationId String?       @unique @map("organization_id")
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
-  // BRANCH_ADMIN — zarządza lokalizacją
+  // BRANCH_ADMIN — manages location
   managedLocation Location? @relation("BranchAdminLocation")
 
   bookings  Booking[]
@@ -78,15 +79,16 @@ model Location {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // należy do organizacji
+  // ORGANIZATION - belongs to organization
   organizationId String       @map("organization_id")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // BRANCH_ADMIN tej lokalizacji
+  // BRANCH_ADMIN for this location
   branchAdminId String? @unique @map("branch_admin_id")
   branchAdmin   User?   @relation("BranchAdminLocation", fields: [branchAdminId], references: [id], onDelete: SetNull)
 
-  inventory LocationVehicle[]
+  inventory             LocationVehicle[]
+  notificationTemplates NotificationTemplate[]
 
   @@map("locations")
 }
@@ -114,6 +116,9 @@ model Vehicle {
 
   typeId String      @map("type_id")
   type   VehicleType @relation(fields: [typeId], references: [id])
+
+  organizationId String?       @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   inventory LocationVehicle[]
   favorites Favorite[]
@@ -193,4 +198,34 @@ model Favorite {
 
   @@unique([userId, vehicleId])
   @@map("favorites")
+}
+
+enum NotificationEventType {
+  BOOKING_CREATED
+  BOOKING_CONFIRMED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  ACCOUNT_CREATED
+  PASSWORD_RESET
+}
+
+enum NotificationRecipientType {
+  USER
+  BRANCH_ADMIN
+}
+
+model NotificationTemplate {
+  id        String                    @id @default(uuid())
+  eventType NotificationEventType     @map("event_type")
+  recipient NotificationRecipientType
+  title     String
+  bodyHtml  String                    @map("body_html")
+  isActive  Boolean                   @default(true) @map("is_active")
+  createdAt DateTime                  @default(now()) @map("created_at")
+  updatedAt DateTime                  @updatedAt @map("updated_at")
+
+  locationId String?   @map("location_id")
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@map("notification_templates")
 }
