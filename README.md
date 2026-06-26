@@ -4,8 +4,8 @@ REST API for the Ride Booker motorcycle test ride booking system, built with Nes
 
 ## Live API
 
-API available at: **[BACKEND_URL]**
-Swagger documentation: **[BACKEND_URL]/api**
+API available at: **https://ride-booker-backend-production.up.railway.app/**
+Swagger documentation: **https://ride-booker-backend-production.up.railway.app/api**
 
 ## Tech Stack
 
@@ -28,7 +28,7 @@ Swagger documentation: **[BACKEND_URL]/api**
 ### 1. Clone the repository
 
 ```bash
-git clone [REPO_URL]
+git clone https://github.com/KarasJakub/ride-booker-backend
 cd ride-booker-backend
 ```
 
