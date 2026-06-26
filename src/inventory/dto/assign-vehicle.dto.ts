@@ -1,13 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, IsUUID, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class AssignVehicleDto {
   @ApiProperty({ example: 'location-uuid' })
-  @IsUUID()
+  @IsString()
   locationId!: string;
 
   @ApiProperty({ example: 'vehicle-uuid' })
-  @IsUUID()
+  @IsString()
   vehicleId!: string;
 
   @ApiPropertyOptional({ example: 2 })

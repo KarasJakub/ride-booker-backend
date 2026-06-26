@@ -45,12 +45,16 @@ export class LocationsService {
   }
 
   async create(dto: CreateLocationDto, userId: string, userRole: string) {
-    // ORG_ADMIN może tworzyć tylko w swojej organizacji
     if (userRole === 'ORG_ADMIN') {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (user?.organizationId !== dto.organizationId) {
-        throw new ForbiddenException('You can only create locations in your organization');
+      if (!user?.organizationId) {
+        throw new ForbiddenException('You are not assigned to an organization');
       }
+      dto.organizationId = user.organizationId;
+    }
+
+    if (!dto.organizationId) {
+      throw new BadRequestException('organizationId is required');
     }
 
     return this.prisma.location.create({

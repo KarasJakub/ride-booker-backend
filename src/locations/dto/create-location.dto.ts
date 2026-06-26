@@ -33,6 +33,6 @@ export class CreateLocationDto {
   lng?: number;
 
   @ApiProperty({ example: 'uuid-organizacji' })
-  @IsUUID()
+  @IsString()
   organizationId!: string;
 }
