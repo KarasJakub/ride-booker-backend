@@ -179,12 +179,14 @@ export class BookingsService {
     // 1. Check slot
     const slot = await this.prisma.slot.findUnique({
       where: { id: dto.slotId },
-      include: { booking: true },
+      include: { booking: { select: { status: true } } },
     });
 
     if (!slot) throw new NotFoundException('Slot not found');
     if (!slot.isAvailable) throw new BadRequestException('Slot is not available');
-    if (slot.booking) throw new BadRequestException('Slot is already booked');
+    if (slot.booking && !['CANCELLED', 'REJECTED'].includes(slot.booking.status)) {
+      throw new BadRequestException('Slot is already booked');
+    }
     if (slot.startTime < new Date()) {
       throw new BadRequestException('Cannot book slots in the past');
     }

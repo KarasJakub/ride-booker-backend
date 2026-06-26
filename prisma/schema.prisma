@@ -52,11 +52,11 @@ model User {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  // ORG_ADMIN — należy do organizacji
+  // ORG_ADMIN — belongs to organization
   organizationId String?       @unique @map("organization_id")
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
-  // BRANCH_ADMIN — zarządza lokalizacją
+  // BRANCH_ADMIN — manages location
   managedLocation Location? @relation("BranchAdminLocation")
 
   bookings  Booking[]
@@ -79,11 +79,11 @@ model Location {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // należy do organizacji
+  // ORGANIZATION - belongs to organization
   organizationId String       @map("organization_id")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // BRANCH_ADMIN tej lokalizacji
+  // BRANCH_ADMIN for this location
   branchAdminId String? @unique @map("branch_admin_id")
   branchAdmin   User?   @relation("BranchAdminLocation", fields: [branchAdminId], references: [id], onDelete: SetNull)
 

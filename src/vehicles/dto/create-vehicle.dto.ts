@@ -8,7 +8,6 @@ export class CreateVehicleDto {
   name!: string;
 
   @ApiProperty({ example: 'uuid-typu' })
-  // @IsUUID()
   @IsString()
   typeId!: string;
 

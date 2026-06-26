@@ -208,7 +208,6 @@ async resetPassword(dto: ResetPasswordDto) {
 
   if (error) throw new BadRequestException(error.message);
 
-  // TODO: "Make it more dynamic and in EN"
   return { message: 'If the account exists, we have sent a link to reset your password' };
 }
 
