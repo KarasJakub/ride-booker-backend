@@ -38,12 +38,12 @@ async login(
 
   // Set refresh token in HttpOnly cookie
   res.cookie('refreshToken', data.refreshToken, {
-    httpOnly: true,       // not accessible via JS
-    secure: false,        // set to true in production (HTTPS)
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/',
-  });
+  })
 
   // Return only accessToken and user data (without refreshToken)
   return {
@@ -70,8 +70,8 @@ async refresh(
   // Set new refresh token in cookie
   res.cookie('refreshToken', data.refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: true,
+    sameSite: 'none',
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/',
   })
@@ -96,8 +96,9 @@ async logout(
   // Clear the refresh token cookie
   res.clearCookie('refreshToken', {
     path: '/',
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
   })
 
   return { message: 'Wylogowano pomyślnie' };
