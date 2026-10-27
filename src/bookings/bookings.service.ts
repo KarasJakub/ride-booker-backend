@@ -190,8 +190,15 @@ export class BookingsService {
     if (slot.startTime < new Date()) {
       throw new BadRequestException('Cannot book slots in the past');
     }
+    //2. Check if vehicle is available
+    const locationVehicle = await this.prisma.locationVehicle.findUnique({
+        where: { id: slot.locationVehicleId },
+      });
+      if (!locationVehicle?.isAvailable) {
+        throw new BadRequestException('Vehicle is not available at this location');
+      }
 
-    // 2. Check if user already has a reservation in this time
+    // 3. Check if user already has a reservation in this time
     const conflict = await this.prisma.booking.findFirst({
       where: {
         userId,
@@ -207,7 +214,7 @@ export class BookingsService {
       throw new BadRequestException('You already have a booking that overlaps with this time');
     }
 
-    // 3. Create booking and block slot
+    // 4. Create booking and block slot
     const [booking] = await this.prisma.$transaction([
       this.prisma.booking.create({
         data: {
@@ -235,7 +242,7 @@ export class BookingsService {
       }),
     ]);
 
-    // 4. Notifications
+    // 5. Notifications
     const fullBooking = await this.prisma.booking.findUnique({
       where: { id: booking.id },
       include: {
@@ -363,7 +370,7 @@ export class BookingsService {
       },
     });
 
-    if (fullBooking) {
+    if (fullBooking && ['CONFIRMED', 'REJECTED'].includes(dto.status)) {
       const eventType = dto.status === 'CONFIRMED' ? 'BOOKING_CONFIRMED' : 'BOOKING_REJECTED';
       const locationLabel = `${fullBooking.slot.locationVehicle.location.name}, ${fullBooking.slot.locationVehicle.location.address ?? ''} ${fullBooking.slot.locationVehicle.location.city}`.trim();
 
