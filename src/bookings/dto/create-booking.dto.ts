@@ -3,7 +3,7 @@ import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateBookingDto {
   @ApiProperty({ example: 'uuid-slotu' })
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   slotId!: string;
 
